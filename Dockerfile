@@ -101,4 +101,5 @@ ENV           REALM="My precious postgres"
 ENV           PORT=5432
 
 ENV           HEALTHCHECK_URL=http://127.0.0.1:5432/
-HEALTHCHECK   --interval=30s --timeout=30s --start-period=10s --retries=1 CMD http-health || exit 1
+# XXX replace with nc -zv localhost 5432 or a homegrown version of it
+#HEALTHCHECK   --interval=30s --timeout=30s --start-period=10s --retries=1 CMD http-health || exit 1
