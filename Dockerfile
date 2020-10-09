@@ -57,6 +57,7 @@ ARG           PG_VERSION=13.0-1.pgdg100+1
 
 USER          root
 
+# hadolint ignore=DL4006
 RUN           apt-get update -qq            && \
               apt-get install -qq --no-install-recommends \
                 curl=7.64.0-4+deb10u1 \
@@ -65,7 +66,7 @@ RUN           apt-get update -qq            && \
               echo "deb http://apt.postgresql.org/pub/repos/apt buster-pgdg main" | tee /etc/apt/sources.list.d/postgres.list && \
               apt-get update -qq            && \
               apt-get install -qq --no-install-recommends \
-                postgresql-common \
+                postgresql-common=217.pgdg100+1 \
                 postgresql-"$PG_MAJOR=$PG_VERSION" && \
               apt-get purge -qq curl gnupg  && \
               apt-get -qq autoremove        && \
@@ -101,5 +102,3 @@ ENV           PORT=5432
 
 ENV           HEALTHCHECK_URL=http://127.0.0.1:5432/
 HEALTHCHECK   --interval=30s --timeout=30s --start-period=10s --retries=1 CMD http-health || exit 1
-
-CMD           postgres

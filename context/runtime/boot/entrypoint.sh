@@ -142,7 +142,7 @@ docker_temp_server_stop() {
 
 _main() {
 	# if first arg looks like a flag, assume we want to run postgres server
-	if [ "${1:0:1}" = '-' ]; then
+	if [ "${1:0:1}" = '-' ] || [ ! "$1" ]; then
 		set -- postgres "$@"
 	fi
 
