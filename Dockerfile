@@ -66,7 +66,7 @@ RUN           apt-get update -qq            && \
               echo "deb http://apt.postgresql.org/pub/repos/apt buster-pgdg main" | tee /etc/apt/sources.list.d/postgres.list && \
               apt-get update -qq            && \
               apt-get install -qq --no-install-recommends \
-                postgresql-common=217.pgdg100+1 \
+                postgresql-common=220.pgdg100+1 \
                 postgresql-"$PG_MAJOR=$PG_VERSION" && \
               apt-get purge -qq curl gnupg  && \
               apt-get -qq autoremove        && \
@@ -86,6 +86,7 @@ STOPSIGNAL    SIGINT
 
 EXPOSE        5432
 VOLUME        /data
+VOLUME        /tmp
 
 # mDNS
 ENV           MDNS_NAME="Fancy Postgres Service Name"
