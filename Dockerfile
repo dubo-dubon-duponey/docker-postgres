@@ -53,7 +53,8 @@ RUN           chmod 555 /dist/boot/bin/*; \
 FROM          $RUNTIME_BASE
 
 ARG           PG_MAJOR=13
-ARG           PG_VERSION=13.0-1.pgdg100+1
+ARG           PG_VERSION=13.1-1.pgdg100+1
+ARG           PG_COMMON=223.pgdg100+1
 
 USER          root
 
@@ -66,7 +67,7 @@ RUN           apt-get update -qq            && \
               echo "deb http://apt.postgresql.org/pub/repos/apt buster-pgdg main" | tee /etc/apt/sources.list.d/postgres.list && \
               apt-get update -qq            && \
               apt-get install -qq --no-install-recommends \
-                postgresql-common=220.pgdg100+1 \
+                postgresql-common="$PG_COMMON" \
                 postgresql-"$PG_MAJOR=$PG_VERSION" && \
               apt-get purge -qq curl gnupg  && \
               apt-get -qq autoremove        && \
