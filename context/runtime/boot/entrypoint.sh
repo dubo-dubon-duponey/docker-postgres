@@ -19,7 +19,7 @@
 
 # Bonjour the container
 if [ "${MDNS_NAME:-}" ]; then
-  goello-server -name "$MDNS_NAME" -host "$MDNS_HOST" -port "$PORT" -type "$MDNS_TYPE" &
+  goello-server -json "$(printf '[{"Type": "%s", "Name": "%s", "Host": "%s", "Port": %s, "Text": {}}]' "$MDNS_TYPE" "$MDNS_NAME" "$MDNS_HOST" "$PORT")" &
 fi
 
 # Run once configured
