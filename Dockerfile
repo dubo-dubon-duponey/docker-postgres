@@ -27,11 +27,12 @@ RUN           chmod 555 /dist/boot/bin/*; \
 FROM          $FROM_REGISTRY/$FROM_IMAGE_RUNTIME
 
 ARG           PG_MAJOR=13
-ARG           PG_VERSION=13+226.pgdg110+1
+ARG           PG_VERSION=13.4-1.pgdg110+1
 ARG           PG_COMMON=226.pgdg110+1
 
 USER          root
 
+# XXX this is hard tied to bullseye
 RUN           --mount=type=secret,uid=100,id=CA \
               --mount=type=secret,uid=100,id=CERTIFICATE \
               --mount=type=secret,uid=100,id=KEY \
@@ -47,6 +48,7 @@ RUN           --mount=type=secret,uid=100,id=CA \
               curl -sSfL https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - && \
               echo "deb http://apt.postgresql.org/pub/repos/apt bullseye-pgdg main" | tee /etc/apt/sources.list.d/postgres.list && \
               apt-get update -qq            && \
+              apt show postgresql-"$PG_MAJOR" postgresql-common && \
               apt-get install -qq --no-install-recommends \
                 postgresql-common="$PG_COMMON" \
                 postgresql-"$PG_MAJOR=$PG_VERSION" && \
