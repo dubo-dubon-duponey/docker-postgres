@@ -46,7 +46,7 @@ RUN           --mount=type=secret,uid=100,id=CA \
                 curl=7.74.0-1.3+b1 \
                 gnupg=2.2.27-2      && \
               curl -sSfL https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - && \
-              echo "deb http://apt.postgresql.org/pub/repos/apt bullseye-pgdg main" | tee /etc/apt/sources.list.d/postgres.list && \
+              echo "deb [arch=amd64,arm64,ppc64el] http://apt.postgresql.org/pub/repos/apt bullseye-pgdg main" | tee /etc/apt/sources.list.d/postgres.list && \
               apt-get update -qq            && \
               apt show postgresql-"$PG_MAJOR" postgresql-common && \
               apt-get install -qq --no-install-recommends \
