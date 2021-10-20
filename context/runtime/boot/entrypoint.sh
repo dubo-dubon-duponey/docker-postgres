@@ -2,10 +2,20 @@
 # XXX restore
 # set -o errexit -o errtrace -o functrace -o nounset -o pipefail
 
-# Ensure the data folder is writable
-[ -w "/data" ] || {
-  >&2 printf "/data is not writable. Check your mount permissions.\n"
-  exit 1
+root="$(cd "$(dirname "${BASH_SOURCE[0]:-$PWD}")" 2>/dev/null 1>&2 && pwd)"
+readonly root
+# shellcheck source=/dev/null
+source "$root/helpers.sh"
+# shellcheck source=/dev/null
+source "$root/mdns.sh"
+
+helpers::dir::writable /data
+
+# mDNS blast if asked to
+[ ! "${MDNS_HOST:-}" ] || {
+  [ ! "${MDNS_STATION:-}" ] || mdns::add "_workstation._tcp" "$MDNS_HOST" "${MDNS_NAME:-}" "$PORT"
+  mdns::add "${MDNS_TYPE:-_http._tcp}" "$MDNS_HOST" "${MDNS_NAME:-}" "$PORT"
+  mdns::start &
 }
 
 #if [ "${USERNAME:-}" ]; then
@@ -16,11 +26,6 @@
 #fi
 
 # args=()
-
-# Bonjour the container
-if [ "${MDNS_NAME:-}" ]; then
-  goello-server -name "$MDNS_NAME" -host "$MDNS_HOST" -port "$PORT" -type "$MDNS_TYPE" &
-fi
 
 # Run once configured
 # exec postgres "$@"

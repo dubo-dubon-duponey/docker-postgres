@@ -1,72 +1,56 @@
-ARG           BUILDER_BASE=dubodubonduponey/base:builder
-ARG           RUNTIME_BASE=dubodubonduponey/base:runtime
+ARG           FROM_REGISTRY=ghcr.io/dubo-dubon-duponey
 
-#######################
-# Extra builder for healthchecker
-#######################
-# hadolint ignore=DL3006,DL3029
-FROM          --platform=$BUILDPLATFORM $BUILDER_BASE                                                                   AS builder-healthcheck
+ARG           FROM_IMAGE_BUILDER=base:builder-bullseye-2021-10-15@sha256:1609d1af44c0048ec0f2e208e6d4e6a525c6d6b1c0afcc9d71fccf985a8b0643
+ARG           FROM_IMAGE_AUDITOR=base:auditor-bullseye-2021-10-15@sha256:2c95e3bf69bc3a463b00f3f199e0dc01cab773b6a0f583904ba6766b3401cb7b
+ARG           FROM_IMAGE_RUNTIME=base:runtime-bullseye-2021-10-15@sha256:5c54594a24e3dde2a82e2027edd6d04832204157e33775edc66f716fa938abba
+ARG           FROM_IMAGE_TOOLS=tools:linux-bullseye-2021-10-15@sha256:4de02189b785c865257810d009e56f424d29a804cc2645efb7f67b71b785abde
 
-ARG           GIT_REPO=github.com/dubo-dubon-duponey/healthcheckers
-ARG           GIT_VERSION=51ebf8ca3d255e0c846307bf72740f731e6210c3
-
-WORKDIR       $GOPATH/src/$GIT_REPO
-RUN           git clone git://$GIT_REPO .
-RUN           git checkout $GIT_VERSION
-# hadolint ignore=DL4006
-RUN           env GOOS=linux GOARCH="$(printf "%s" "$TARGETPLATFORM" | sed -E 's/^[^/]+\/([^/]+).*/\1/')" go build -v -ldflags "-s -w" \
-                -o /dist/boot/bin/http-health ./cmd/http
-
-#######################
-# Goello
-#######################
-# hadolint ignore=DL3006,DL3029
-FROM          --platform=$BUILDPLATFORM $BUILDER_BASE                                                                   AS builder-goello
-
-ARG           GIT_REPO=github.com/dubo-dubon-duponey/goello
-ARG           GIT_VERSION=6f6c96ef8161467ab25be45fe3633a093411fcf2
-
-WORKDIR       $GOPATH/src/$GIT_REPO
-RUN           git clone git://$GIT_REPO .
-RUN           git checkout $GIT_VERSION
-# hadolint ignore=DL4006
-RUN           env GOOS=linux GOARCH="$(printf "%s" "$TARGETPLATFORM" | sed -E 's/^[^/]+\/([^/]+).*/\1/')" go build -v -ldflags "-s -w" \
-                -o /dist/boot/bin/goello-server ./cmd/server/main.go
+FROM          $FROM_REGISTRY/$FROM_IMAGE_TOOLS                                                                          AS builder-tools
 
 #######################
 # Builder assembly
 #######################
-# hadolint ignore=DL3006
-FROM          $BUILDER_BASE                                                                                             AS builder
+FROM          --platform=$BUILDPLATFORM $FROM_REGISTRY/$FROM_IMAGE_AUDITOR                                              AS builder
 
-COPY          --from=builder-healthcheck /dist/boot/bin /dist/boot/bin
-COPY          --from=builder-goello /dist/boot/bin /dist/boot/bin
+RUN           mkdir -p /dist/boot/bin
+
+COPY          --from=builder-tools  /boot/bin/goello-server-ng  /dist/boot/bin
+COPY          --from=builder-tools  /boot/bin/http-health    /dist/boot/bin
 
 RUN           chmod 555 /dist/boot/bin/*; \
               epoch="$(date --date "$BUILD_CREATED" +%s)"; \
-              find /dist/boot/bin -newermt "@$epoch" -exec touch --no-dereference --date="@$epoch" '{}' +;
+              find /dist/boot -newermt "@$epoch" -exec touch --no-dereference --date="@$epoch" '{}' +;
 
 #######################
 # Running image
 #######################
-# hadolint ignore=DL3006
-FROM          $RUNTIME_BASE
+FROM          $FROM_REGISTRY/$FROM_IMAGE_RUNTIME
 
 ARG           PG_MAJOR=13
-ARG           PG_VERSION=13.0-1.pgdg100+1
+ARG           PG_VERSION=13.4-4.pgdg110+1
+ARG           PG_COMMON=231.pgdg110+1
 
 USER          root
 
-# hadolint ignore=DL4006
-RUN           apt-get update -qq            && \
-              apt-get install -qq --no-install-recommends \
-                curl=7.64.0-4+deb10u1 \
-                gnupg=2.2.12-1+deb10u1      && \
-              curl --proto '=https' --tlsv1.2 -sSfL https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - && \
-              echo "deb http://apt.postgresql.org/pub/repos/apt buster-pgdg main" | tee /etc/apt/sources.list.d/postgres.list && \
+# XXX this is hard tied to bullseye
+RUN           --mount=type=secret,uid=100,id=CA \
+              --mount=type=secret,uid=100,id=CERTIFICATE \
+              --mount=type=secret,uid=100,id=KEY \
+              --mount=type=secret,uid=100,id=GPG.gpg \
+              --mount=type=secret,id=NETRC \
+              --mount=type=secret,id=APT_SOURCES \
+              --mount=type=secret,id=APT_CONFIG \
+              --mount=type=secret,id=.curlrc \
               apt-get update -qq            && \
               apt-get install -qq --no-install-recommends \
-                postgresql-common=220.pgdg100+1 \
+                curl=7.74.0-1.3+b1 \
+                gnupg=2.2.27-2      && \
+              curl -sSfL https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - && \
+              echo "deb [arch=amd64,arm64,ppc64el] http://apt.postgresql.org/pub/repos/apt bullseye-pgdg main" | tee /etc/apt/sources.list.d/postgres.list && \
+              apt-get update -qq            && \
+              apt show postgresql-"$PG_MAJOR" postgresql-common && \
+              apt-get install -qq --no-install-recommends \
+                postgresql-common="$PG_COMMON" \
                 postgresql-"$PG_MAJOR=$PG_VERSION" && \
               apt-get purge -qq curl gnupg  && \
               apt-get -qq autoremove        && \
@@ -77,7 +61,7 @@ RUN           apt-get update -qq            && \
 
 USER          dubo-dubon-duponey
 
-COPY          --from=builder --chown=$BUILD_UID:root /dist .
+COPY          --from=builder --chown=$BUILD_UID:root /dist /
 
 ENV           PATH=/usr/lib/postgresql/$PG_MAJOR/bin/:$PATH
 ENV           PGDATA=/data
@@ -88,15 +72,24 @@ EXPOSE        5432
 VOLUME        /data
 VOLUME        /tmp
 
-# mDNS
-ENV           MDNS_NAME="Fancy Postgres Service Name"
-ENV           MDNS_HOST="postgres"
-ENV           MDNS_TYPE=_postgres._tcp
+ENV           _SERVICE_NICK="postgres"
+ENV           _SERVICE_TYPE="database"
 
-# Authentication
-ENV           USERNAME="dubo-dubon-duponey"
-ENV           PASSWORD="nhehehehehe"
-ENV           REALM="My precious postgres"
+### mDNS broadcasting
+# Type to advertise
+ENV           MDNS_TYPE="_$_SERVICE_TYPE._tcp"
+# Name is used as a short description for the service
+ENV           MDNS_NAME="$_SERVICE_NICK mDNS display name"
+# The service will be annonced and reachable at $MDNS_HOST.local (set to empty string to disable mDNS announces entirely)
+ENV           MDNS_HOST="$_SERVICE_NICK"
+# Also announce the service as a workstation (for example for the benefit of coreDNS mDNS)
+ENV           MDNS_STATION=true
+
+# Realm in case access is authenticated
+ENV           REALM="My Precious Realm"
+# Provide username and password here (call the container with the "hash" command to generate a properly encrypted password, otherwise, a random one will be generated)
+ENV           USERNAME=""
+ENV           PASSWORD=""
 
 # Log level and port
 ENV           PORT=5432
